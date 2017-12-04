@@ -26,7 +26,7 @@ namespace Fantasista.IronDotNet
 
         }
 
-        public HmacResult HmacWithPassword(string password, SubConfig options, string toHmac)
+        private HmacResult HmacWithPassword(string password, SubConfig options, string toHmac)
         {
             var key = GenerateKey(password,options);
             var hmac = new HMACSHA256(key.Key);
@@ -44,7 +44,7 @@ namespace Fantasista.IronDotNet
             var now = DateTime.Now.AddMilliseconds(config.LocalTimeOffsetMsec);
             var parts = sealedString.Split('*');
             if (parts.Length!=8)
-                throw new IronConfigurationErrorException("Sealed string must be 8 parts");
+                throw new IronUnsealErrorException("Sealed string must be 8 parts");
             var macPrefix = parts[0];
             var passwordId = parts[1];
             var encryptionSalt = parts[2];
@@ -55,13 +55,13 @@ namespace Fantasista.IronDotNet
             var hmac = parts[7];
             var macBaseString = macPrefix + '*' + passwordId + '*' + encryptionSalt + '*' + encryptionIv + '*' + encryptedB64 + '*' + expiration;
             if (macPrefix!=MacPrefix)
-                throw new IronConfigurationErrorException("Mac prefix is wrong");
+                throw new IronUnsealErrorException("Mac prefix is wrong");
             if (!string.IsNullOrEmpty(expiration))
             {
                 var expiryDate = new DateTime(long.Parse(expiration));
                 if (expiryDate<=DateTime.Now)
                 {
-                    throw new IronConfigurationErrorException("Expired seal");
+                    throw new IronUnsealErrorException("Expired seal");
                 }
             }
             var normalizedPassword = NormalizePassword(password);
@@ -70,7 +70,7 @@ namespace Fantasista.IronDotNet
             var mac = HmacWithPassword(normalizedPassword.Integrity,decryptOptions,macBaseString);
             if (mac.Digest!=hmac)
             {
-                throw new IronConfigurationErrorException("Bad HMAC value");
+                throw new IronUnsealErrorException("Bad HMAC value");
             }
             var encryptedUnBase64 = Util.Base64UrlDecode(encryptedB64);
             decryptOptions.Iv = Util.Base64UrlDecode(encryptionIv);
@@ -93,7 +93,7 @@ namespace Fantasista.IronDotNet
             return macBaseString+"*"+hmac.Salt+"*"+hmac.Digest;
         }
 
-        public IronEncryptResult Encrypt(string password, SubConfig config, string toEncrypt)
+        private IronEncryptResult Encrypt(string password, SubConfig config, string toEncrypt)
         {
             var key = GenerateKey(password,config);
             using (var encryption = AlgorithmHelper.GetEncryption(config.Algorithm,key.Key,key.Iv))
@@ -115,7 +115,7 @@ namespace Fantasista.IronDotNet
             }
         }
 
-        public IronDecryptResult Decrypt(string password, SubConfig config, byte[] toDecrypt)
+        private IronDecryptResult Decrypt(string password, SubConfig config, byte[] toDecrypt)
         {
             var key = GenerateKey(password,config);
             using (var encryption = AlgorithmHelper.GetDecryption(config.Algorithm,key.Key,key.Iv))
@@ -138,7 +138,7 @@ namespace Fantasista.IronDotNet
         }
 
 
-        public IronKeyResult GenerateKey(string password,SubConfig config)
+        private IronKeyResult GenerateKey(string password,SubConfig config)
         {
             if (string.IsNullOrEmpty(password)) 
                 throw new IronMissingPasswordException("No password provided");
@@ -148,7 +148,7 @@ namespace Fantasista.IronDotNet
             var salt = config.Salt;
             if (string.IsNullOrEmpty(salt))
             {
-                salt = Guid.NewGuid().ToString();
+                salt = Guid.NewGuid().ToString("N");
             }
             var iv = config.Iv;
             if (iv==null)

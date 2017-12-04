@@ -4,6 +4,7 @@
     <ProjectReference Include="..\Iron.NET\Iron.NET.csproj" />
   </ItemGroup>
 
+
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.0</TargetFramework>
