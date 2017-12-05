@@ -25,8 +25,6 @@ namespace Fantasista.IronDotNet
     {
         private IronConfig _config;
         
-        private const string MacFormatVersion = "2";
-        private const string MacPrefix = "Fe26." + MacFormatVersion;
 
         public string Digest { get; private set; }
         public string Salt { get; private set; }
@@ -56,43 +54,35 @@ namespace Fantasista.IronDotNet
 
         public string Unseal(string sealedString, string password, IronConfig config)
         {
-            var now = DateTime.Now.AddMilliseconds(config.LocalTimeOffsetMsec);
-            var parts = sealedString.Split('*');
-            if (parts.Length!=8)
-                throw new IronUnsealErrorException("Sealed string must be 8 parts");
-            var macPrefix = parts[0];
-            var passwordId = parts[1];
-            var encryptionSalt = parts[2];
-            var encryptionIv = parts[3];
-            var encryptedB64 = parts[4];
-            var expiration = parts[5];
-            var hmacSalt = parts[6];
-            var hmac = parts[7];
-            var macBaseString = macPrefix + '*' + passwordId + '*' + encryptionSalt + '*' + encryptionIv + '*' + encryptedB64 + '*' + expiration;
-            if (macPrefix!=MacPrefix)
-                throw new IronUnsealErrorException("Mac prefix is wrong");
-            if (!string.IsNullOrEmpty(expiration))
+            var macBase = MacBase.FromSealedString(sealedString);
+            if (!string.IsNullOrEmpty(macBase.Expiration))
             {
-                var expiryDate = new DateTime(long.Parse(expiration));
-                if (expiryDate<=DateTime.Now)
-                {
-                    throw new IronUnsealErrorException("Expired seal");
-                }
+                CheckExpirationDate(macBase.Expiration,config);
             }
             var normalizedPassword = NormalizePassword(password);
             var decryptOptions = config.EncryptionConfig;
-            decryptOptions.Salt = hmacSalt;
-            var mac = HmacWithPassword(normalizedPassword.Integrity,decryptOptions,macBaseString);
-            if (mac.Digest!=hmac)
+            decryptOptions.Salt = macBase.HmacSalt;
+            var mac = HmacWithPassword(normalizedPassword.Integrity,decryptOptions,macBase.ToShortString());
+            if (mac.Digest!=macBase.Hmac)
             {
                 throw new IronUnsealErrorException("Bad HMAC value");
             }
-            var encryptedUnBase64 = Util.Base64UrlDecode(encryptedB64);
-            decryptOptions.Iv = Util.Base64UrlDecode(encryptionIv);
-            decryptOptions.Salt = encryptionSalt;
+            var encryptedUnBase64 = Util.Base64UrlDecode(macBase.EncryptedB64);
+            decryptOptions.Iv = Util.Base64UrlDecode(macBase.EncryptionIv);
+            decryptOptions.Salt = macBase.EncryptionSalt;
             var decrypted = Decrypt(normalizedPassword.Encryption,decryptOptions,encryptedUnBase64);
             return decrypted.DecryptedResult;
             
+        }
+
+        private static void CheckExpirationDate(string expiration,IronConfig config)
+        {
+            var _now = DateTime.Now.AddMilliseconds(config.LocalTimeOffsetMsec);
+            var expiryDate = new DateTime(long.Parse(expiration));
+            if (expiryDate <= _now)
+            {
+                throw new IronUnsealErrorException("Expired seal");
+            }
         }
 
         public string Seal(string stringToSeal, string password, IronConfig options)
@@ -103,9 +93,10 @@ namespace Fantasista.IronDotNet
             var encryptedB64 = Util.Base64UrlEncode(encrypted.EncryptedResult);
             var iv = Util.Base64UrlEncode(encrypted.Key.Iv);
             var expiration = DateTime.Now.AddMilliseconds(options.Ttl);
-            var macBaseString = MacPrefix+"**"+encrypted.Key.Salt+"*"+iv+"*"+encryptedB64+"*";
-            var hmac = HmacWithPassword(password,options.IntegrityConfig,macBaseString);
-            return macBaseString+"*"+hmac.Salt+"*"+hmac.Digest;
+            var hmacBase = MacBase.FromParameters("",encrypted.Key.Salt,iv,encryptedB64,"");
+            var hmac = HmacWithPassword(password,options.IntegrityConfig,hmacBase.ToShortString());
+            hmacBase.SetHmacSalt(hmac.Salt,hmac.Digest);
+            return hmacBase.ToString();
         }
 
         private IronEncryptResult Encrypt(string password, SubConfig config, string toEncrypt)
@@ -113,21 +104,37 @@ namespace Fantasista.IronDotNet
             var key = GenerateKey(password,config);
             using (var encryption = AlgorithmHelper.GetEncryption(config.Algorithm,key.Key,key.Iv))
             {
-                using (var memoryStream = new MemoryStream())
-                {
-                    using (var cryptoStream = new CryptoStream(memoryStream,encryption,CryptoStreamMode.Write))
-                    {
-                        var bytesToEncrypt = System.Text.Encoding.UTF8.GetBytes(toEncrypt);
-                        cryptoStream.Write(bytesToEncrypt,0,bytesToEncrypt.Length);
-                        cryptoStream.FlushFinalBlock();
-                        var encrypted = memoryStream.ToArray();
-                        return new IronEncryptResult() {
-                            Key = key,
-                            EncryptedResult = encrypted
-                        };
-                    }
-                }
+                return EncryptWithCorrectEncryption(toEncrypt, key, encryption);
             }
+        }
+
+        private static IronEncryptResult EncryptWithCorrectEncryption(string toEncrypt, IronKeyResult key, ICryptoTransform encryption)
+        {
+            using (var memoryStream = new MemoryStream())
+            {
+                return WriteEncryptionToMemoryStream(toEncrypt, key, encryption, memoryStream);
+            }
+        }
+
+        private static IronEncryptResult WriteEncryptionToMemoryStream(string toEncrypt, IronKeyResult key, ICryptoTransform encryption, MemoryStream memoryStream)
+        {
+            using (var cryptoStream = new CryptoStream(memoryStream, encryption, CryptoStreamMode.Write))
+            {
+                return WriteContentToCryptoStreamAndReturnEncryptedResult(toEncrypt, key, memoryStream, cryptoStream);
+            }
+        }
+
+        private static IronEncryptResult WriteContentToCryptoStreamAndReturnEncryptedResult(string toEncrypt, IronKeyResult key, MemoryStream memoryStream, CryptoStream cryptoStream)
+        {
+            var bytesToEncrypt = System.Text.Encoding.UTF8.GetBytes(toEncrypt);
+            cryptoStream.Write(bytesToEncrypt, 0, bytesToEncrypt.Length);
+            cryptoStream.FlushFinalBlock();
+            var encrypted = memoryStream.ToArray();
+            return new IronEncryptResult()
+            {
+                Key = key,
+                EncryptedResult = encrypted
+            };
         }
 
         private IronDecryptResult Decrypt(string password, SubConfig config, byte[] toDecrypt)
@@ -135,52 +142,82 @@ namespace Fantasista.IronDotNet
             var key = GenerateKey(password,config);
             using (var encryption = AlgorithmHelper.GetDecryption(config.Algorithm,key.Key,key.Iv))
             {
-                using (var memoryStream = new MemoryStream())
-                {
-                    using (var cryptoStream = new CryptoStream(memoryStream,encryption,CryptoStreamMode.Write))
-                    {
-                        
-                        cryptoStream.Write(toDecrypt,0,toDecrypt.Length);
-                        cryptoStream.FlushFinalBlock();
-                        var encrypted = memoryStream.ToArray();
-                        return new IronDecryptResult() {
-                            Key = key,
-                            DecryptedResult = System.Text.Encoding.UTF8.GetString(encrypted)
-                        };
-                    }
-                }
+                return DecryptWithCorrectDecryptionAlgorithm(toDecrypt, key, encryption);
             }
         }
 
+        private static IronDecryptResult DecryptWithCorrectDecryptionAlgorithm(byte[] toDecrypt, IronKeyResult key, ICryptoTransform encryption)
+        {
+            using (var memoryStream = new MemoryStream())
+            {
+                return CreateCryptoStreamAndDecryptResult(toDecrypt, key, encryption, memoryStream);
+            }
+        }
+
+        private static IronDecryptResult CreateCryptoStreamAndDecryptResult(byte[] toDecrypt, IronKeyResult key, ICryptoTransform encryption, MemoryStream memoryStream)
+        {
+            using (var cryptoStream = new CryptoStream(memoryStream, encryption, CryptoStreamMode.Write))
+            {
+
+                cryptoStream.Write(toDecrypt, 0, toDecrypt.Length);
+                cryptoStream.FlushFinalBlock();
+                var encrypted = memoryStream.ToArray();
+                return new IronDecryptResult()
+                {
+                    Key = key,
+                    DecryptedResult = System.Text.Encoding.UTF8.GetString(encrypted)
+                };
+            }
+        }
 
         private IronKeyResult GenerateKey(string password,SubConfig config)
         {
-            if (string.IsNullOrEmpty(password)) 
+            CheckConfiguration(password, config);
+            string salt = CreateSalt(config);
+            byte[] iv = CreateIvBytes(config);
+            return GenerateKeyBasedOnSaltIvAndPassword(password, config, salt, iv);
+        }
+
+        private static IronKeyResult GenerateKeyBasedOnSaltIvAndPassword(string password, SubConfig config, string salt, byte[] iv)
+        {
+            var derivedBytes = new Rfc2898DeriveBytes(System.Text.Encoding.UTF8.GetBytes(password), System.Text.Encoding.UTF8.GetBytes(salt), config.Iterations);
+            return new IronKeyResult()
+            {
+                Key = derivedBytes.GetBytes(32),
+                Salt = salt,
+                Iv = iv
+            };
+        }
+
+        private static byte[] CreateIvBytes(SubConfig config)
+        {
+            var iv = config.Iv;
+            if (iv == null)
+            {
+                iv = AlgorithmHelper.CreateIv(config.Algorithm);
+            }
+
+            return iv;
+        }
+
+        private static void CheckConfiguration(string password, SubConfig config)
+        {
+            if (string.IsNullOrEmpty(password))
                 throw new IronMissingPasswordException("No password provided");
-            if (password.Length<AlgorithmHelper.GetNumberOfBits(config.Algorithm)/8)
+            if (password.Length < AlgorithmHelper.GetNumberOfBits(config.Algorithm) / 8)
                 throw new IronConfigurationErrorException("Password buffer is too small");
-            var numberOfIvBits = AlgorithmHelper.GetNumberOfIvBits(config.Algorithm);
+        }
+
+        private static string CreateSalt(SubConfig config)
+        {
             var salt = config.Salt;
             if (string.IsNullOrEmpty(salt))
             {
                 salt = Guid.NewGuid().ToString("N");
             }
-            var iv = config.Iv;
-            if (iv==null)
-            {
-                iv = AlgorithmHelper.CreateIv(config.Algorithm);
-            }
-            
-            var derivedBytes = new Rfc2898DeriveBytes(System.Text.Encoding.UTF8.GetBytes(password), System.Text.Encoding.UTF8.GetBytes(salt),config.Iterations);
 
-            return new IronKeyResult()
-            {
-                Key = derivedBytes.GetBytes(32),
-                Salt =salt,
-                Iv = iv
-            };
+            return salt;
         }
-        
 
 
         private IronPassword NormalizePassword(string password)

@@ -2,6 +2,17 @@
 
 A .Net port of the npm package Iron.  
 
+## Install
+Nuget Package Manager
+```
+Install-Package Fantasista.Iron.Net
+```
+
+```
+dotnet add package Fantasista.Iron.Net
+```
+
+
 ## Usage
 ```
             var iron = new Fantasista.IronDotNet.Iron();
