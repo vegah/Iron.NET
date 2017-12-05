@@ -8,6 +8,7 @@ Nuget Package Manager
 Install-Package Fantasista.Iron.Net
 ```
 
+Dotnet core:
 ```
 dotnet add package Fantasista.Iron.Net
 ```
@@ -24,6 +25,7 @@ dotnet add package Fantasista.Iron.Net
 
 ## Notes
 This is still work in progress, but it is usable for Seal and Unseal.  Should be refactored and some exceptions should be moved etc.
+
 
 
 
