@@ -13,7 +13,6 @@ Dotnet core:
 dotnet add package Fantasista.Iron.Net
 ```
 
-
 ## Usage
 ```
             var iron = new Fantasista.IronDotNet.Iron();
@@ -23,8 +22,16 @@ dotnet add package Fantasista.Iron.Net
 
 ```
 
+
+## What is it?
+Iron.NET is a .Net implementation of the npm package Iron, which can be found here :
+Npm :  https://www.npmjs.com/package/iron  
+Github:  https://github.com/hueniverse/iron  
+According to their own documentation, the purpose is:  
+> iron is a cryptographic utility for sealing a JSON object using symmetric key encryption with message integrity verification. Or in other words, it lets you encrypt an object, send it around (in cookies, authentication credentials, etc.), then receive it back and decrypt it. The algorithm ensures that the message was not tampered with, and also provides a simple mechanism for password rotation.
+
 ## Notes
-This is still work in progress, but it is usable for Seal and Unseal.  Should be refactored and some exceptions should be moved etc.
+This is still work in progress, but it is usable for Seal and Unseal.  
 
 
 
