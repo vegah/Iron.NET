@@ -1,6 +1,6 @@
 # Iron.Net
 
-A .Net port of the npm package Iron.  
+A .Net port of the npm package Iron.  It should be able to unseal messages which have been sealed with the npm package and the npm package should be able to unseal whatever is sealed with this library.  
 
 ## Install
 Nuget Package Manager
@@ -24,15 +24,21 @@ dotnet add package Fantasista.Iron.Net
 
 
 ## What is it?
-Iron.NET is a .Net implementation of the npm package Iron, which can be found here :
-Npm :  https://www.npmjs.com/package/iron  
-Github:  https://github.com/hueniverse/iron  
-According to their own documentation, the purpose is:  
+Iron.NET is a .Net implementation of the npm package Iron, which can be found here :  
+ * Npm :  https://www.npmjs.com/package/iron  
+ * Github:  https://github.com/hueniverse/iron  
+  
+According to Iron's own documentation, the purpose is:  
 > iron is a cryptographic utility for sealing a JSON object using symmetric key encryption with message integrity verification. Or in other words, it lets you encrypt an object, send it around (in cookies, authentication credentials, etc.), then receive it back and decrypt it. The algorithm ensures that the message was not tampered with, and also provides a simple mechanism for password rotation.
 
 ## Notes
 This is still work in progress, but it is usable for Seal and Unseal.  
 
+## License
+The code is distributed under the Apache 2 license.  
 
-
-
+## Version history
+|Version|Comment|Date
+|-------|-------|----
+|0.1.1  |Just some small refactoring|2017-12-05|
+|0.1.0  |First version|2017-12-04|

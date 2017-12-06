@@ -22,11 +22,11 @@ namespace Fantasista.IronDotNet
         public static string Base64UrlEncode(byte[] input) {
     
     // Special "url-safe" base64 encode.
-    return Convert.ToBase64String(input)
-      .Replace('+', '-')
-      .Replace('/', '_')
-      .Replace("=", "");
-  }
+        return Convert.ToBase64String(input)
+            .Replace('+', '-')
+            .Replace('/', '_')
+            .Replace("=", "");
+    }
 
         internal static byte[] Base64UrlDecode(string encryptedB64)
         {
