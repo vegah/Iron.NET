@@ -38,7 +38,8 @@ This is still work in progress, but it is usable for Seal and Unseal.
 The code is distributed under the Apache 2 license.  
 
 ## Version history
-|Version|Comment|Date
-|-------|-------|----
-|0.1.1  |Just some small refactoring|2017-12-05|
-|0.1.0  |First version|2017-12-04|
+|Version| Comment                             |Date|
+|-------|-------------------------------------|----|
+|0.1.2| Updated to dotnet 8<br/>Added tests |2024-10-24|
+|0.1.1  | Just some small refactoring         |2017-12-05|
+|0.1.0  | First version                       |2017-12-04|

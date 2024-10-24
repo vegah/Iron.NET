@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <PackageId>Fantasista.Iron.Net</PackageId>
     <PackageVersion>0.1.1</PackageVersion>
     <Authors>Vegard Berget</Authors>
@@ -12,5 +12,6 @@
     <Copyright>Copyright 2016 (c) Vegard Berget. All rights reserved.</Copyright>
     <PackageTags>iron seal unseal</PackageTags>   
     <PackageProjectUrl>https://github.com/vegah/Iron.NET</PackageProjectUrl>
+    <LangVersion>12</LangVersion>
   </PropertyGroup>
 </Project>
