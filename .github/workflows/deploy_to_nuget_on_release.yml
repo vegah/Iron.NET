@@ -34,8 +34,8 @@ jobs:
       - name: Update .csproj version
         run: |
           version=${{ steps.get_version.outputs.VERSION }}
-          csproj_file=$(find . -name '*.csproj')
-          xmlstarlet ed -L -u '//Version' -v "$version" "$csproj_file"
+          csproj_file=Iron.NET/Iron.NET.csproj 
+          xmlstarlet ed -L -u '//PackageVersion' -v "$version" "$csproj_file"
       - name: Pack
         run: dotnet pack --no-build --configuration Release -o ./output
         
